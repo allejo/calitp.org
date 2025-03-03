@@ -66,6 +66,10 @@ def parse_issue_body(body):
 
   return result
 
+#
+# Utility functions for CI/CD operations
+#
+
 def is_ci():
   return os.getenv('CI', 'false') == 'true'
 
@@ -80,6 +84,12 @@ def set_gha_output(name, value):
     print(f'{name}<<{delimiter}', file=fh)
     print(value, file=fh)
     print(delimiter, file=fh)
+
+def write_debug(message):
+  if os.getenv('RUNNER_DEBUG', '0') == '1':
+    print(f'::debug::{message}')
+  elif os.getenv('DEBUG', 'false') == 'true':
+    print(f'[DEBUG] {message}')
 
 #
 # Utility functions for I/O operations
@@ -120,18 +130,29 @@ def main():
   else:
     input_str = sys.stdin.read()
 
-  json_data = json.loads(input_str)
-  issue = parse_issue_body(json_data['body'])
-
-  # If the resource hasn't been approved yet, skip creation
-  if issue['approved'].strip().lower() != 'yes':
-    message = 'Resource has not been approved, skipping creation'
+  try:
+    json_data = json.loads(input_str)
+  except json.decoder.JSONDecodeError as e:
+    write_debug(f'Failed to parse input as JSON: {e}')
 
     if is_ci():
       set_gha_output('success', 'false')
-      set_gha_output('message', message)
+      set_gha_output('failure_reason', 'invalid_json')
     else:
-      print(message)
+      print('This script expects valid JSON as its input.')
+
+    return
+
+  issue = parse_issue_body(json_data['body'])
+  write_debug(f'Parsed issue body: {json.dumps(issue, indent=2)}')
+
+  # If the resource hasn't been approved yet, skip creation
+  if issue['approved'].strip().lower() != 'yes':
+    write_debug('Resource has not been approved, skipping creation')
+
+    if is_ci():
+      set_gha_output('success', 'false')
+      set_gha_output('failure_reason', 'not_approved')
 
     return
 
@@ -140,13 +161,13 @@ def main():
   required_issue_keys = ['approved', 'date_year', 'date_month', 'title', 'asset_url', 'category', 'tag']
   if not all(key in issue for key in required_issue_keys):
     missing_keys = [key for key in required_issue_keys if key not in issue]
-    message = f'Issue body is missing one or more of the following keys: {missing_keys}'
+
+    write_debug(f'Expected keys: {required_issue_keys}')
+    write_debug(f'Issue body is missing one or more of the following keys: {missing_keys}')
 
     if is_ci():
       set_gha_output('success', 'false')
-      set_gha_output('message', message)
-    else:
-      print(message)
+      set_gha_output('failure_reason', 'missing_keys')
 
     return
 
@@ -168,7 +189,8 @@ tags:
   if is_ci():
     set_gha_output('success', 'true')
     set_gha_output('resource_filename', filename)
-    set_gha_output('message', f'Created resource: {filename}')
+
+    write_debug(f'Creating resource: {filename}')
   else:
     print(f'Created resource: {filename}')
     print('')
