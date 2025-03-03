@@ -173,6 +173,7 @@ def main():
 
 
   filename = build_filename(get_file_prefix(issue['category']), issue['title'])
+  tags = issue['tag'] if isinstance(issue['tag'], list) else [issue['tag']]
   content = f"""
 ---
 date: "{issue['date_year']}-{issue['date_month']}-01T00:00:00-07:00"
@@ -180,7 +181,7 @@ title: "{issue['title']}"
 asset: "{issue['asset_url']}"
 category: "{issue['category']}"
 tags:
-{NEWLINE.join(f'  - {tag}' for tag in issue['tag'])}
+{NEWLINE.join(f'  - {tag}' for tag in tags)}
 ---
 """.lstrip()
 
