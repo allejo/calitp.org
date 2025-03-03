@@ -1,7 +1,7 @@
 name: Auto-Create PRs for Resource Requests
 on:
   issues:
-    types: [opened, transferred]
+    types: [opened, reopened, transferred]
   workflow_dispatch:
     inputs:
       issue_number:
@@ -27,7 +27,7 @@ jobs:
       - name: Configure State
         id: workflow_state
         run: |
-          echo "issue_numer=${{ github.event.issues.issue.number || github.event.inputs.issue_number }}" >> "$GITHUB_OUTPUT"
+          echo "issue_number=${{ github.event.issue.number || github.event.inputs.issue_number }}" >> "$GITHUB_OUTPUT"
 
       - name: Run the script
         id: resource_gen
